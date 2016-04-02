@@ -11,7 +11,81 @@ import cPickle as pickle
 import os
 
 
+databases={'dbpedia':{'edge_table':'infobox','db_name':'wiki'},
+           'dbpedia_classes':{'edge_table':'infobox_classes','db_name':'wiki'},
+           'wikidata':{'edge_table':'edges','db_name':'wikidata'},
+           'dbpedia_bin':{'edge_table':'infobox','db_name':'wikipedia','lookup_entities':'entities','lookup_properties':'properties'},
+           'dbpedia_class_bin':{'edge_table':'infobox_classes','db_name':'wikipedia','lookup_entities':'entities','lookup_properties':'properties'},
+           'neo4j_wikidata':{'neo4j':True},
+           
+           }
 
+
+ranking_configurations_all=[{'name':'r10','kind':'pr','dumping':0.1},
+                        {'name':'r20','kind':'pr','dumping':0.2},
+                        {'name':'r30','kind':'pr','dumping':0.3},
+                        {'name':'r40','kind':'pr','dumping':0.4},
+                        {'name':'r50','kind':'pr','dumping':0.5},
+                        {'name':'r55','kind':'pr','dumping':0.55},
+                        {'name':'r60','kind':'pr','dumping':0.6},
+                        {'name':'r65','kind':'pr','dumping':0.65},
+                        {'name':'r70','kind':'pr','dumping':0.70},
+                        {'name':'r75','kind':'pr','dumping':0.75},
+                        {'name':'r80','kind':'pr','dumping':0.80},
+                        {'name':'r85','kind':'pr','dumping':0.85},
+                        {'name':'r90','kind':'pr','dumping':0.90},
+                        {'name':'r95','kind':'pr','dumping':0.95},
+                        {'name':'pr10','kind':'ppr','dumping':0.10},
+                        {'name':'pr20','kind':'ppr','dumping':0.20},
+                        {'name':'pr30','kind':'ppr','dumping':0.30},
+                        {'name':'pr40','kind':'ppr','dumping':0.40},
+                        {'name':'pr50','kind':'ppr','dumping':0.50},
+                        {'name':'pr55','kind':'ppr','dumping':0.55},
+                        {'name':'pr60','kind':'ppr','dumping':0.60},
+                        {'name':'pr65','kind':'ppr','dumping':0.65},
+                        {'name':'pr70','kind':'ppr','dumping':0.70},
+                        {'name':'pr75','kind':'ppr','dumping':0.75},
+                        {'name':'pr80','kind':'ppr','dumping':0.80},
+                        {'name':'pr85','kind':'ppr','dumping':0.85},
+                        {'name':'pr90','kind':'ppr','dumping':0.90},
+                        {'name':'pr95','kind':'ppr','dumping':0.95},
+                        {'name':'rpr10','kind':'rppr','dumping':0.10},
+                        {'name':'rpr20','kind':'rppr','dumping':0.20},
+                        {'name':'rpr30','kind':'rppr','dumping':0.30},
+                        {'name':'rpr40','kind':'rppr','dumping':0.40},
+                        {'name':'rpr50','kind':'rppr','dumping':0.50},
+                        {'name':'rpr55','kind':'rppr','dumping':0.55},
+                        {'name':'rpr60','kind':'rppr','dumping':0.60},
+                        {'name':'rpr65','kind':'rppr','dumping':0.65},
+                        {'name':'rpr70','kind':'rppr','dumping':0.70},
+                        {'name':'rpr75','kind':'rppr','dumping':0.75},
+                        {'name':'rpr80','kind':'rppr','dumping':0.80},
+                        {'name':'rpr85','kind':'rppr','dumping':0.85},
+                        {'name':'rpr90','kind':'rppr','dumping':0.90},
+                        {'name':'rpr95','kind':'rppr','dumping':0.95},
+                        {'name':'pr0'}]
+
+weighting_configurations_all=[{'name':'no_w'},{'name':'p_o'},{'name':'IC_pred'},{'name':'IC_obj'}
+                              ,{'name':'w_join'},{'name':'w_comb'},{'name':'PMI_pred_obj'}
+                              ,{'name':'w_ic_pmi'},{'name':'PMI_classes_min'},{'name':'PMI_classes_max'},
+                              {'name':'INTERACT_classes_min'},{'name':'INTERACT_classes_max'}
+                              ,{'name':'TOT_CORR_classes_max'},{'name':'TOT_CORR_classes_min'},{'name':'INTERACT_spo'}
+                              ,{'name':'TOT_CORR_spo'}]
+
+ranking_custom=[{'name':'rpr10','kind':'rppr','dumping':0.10},
+                        {'name':'rpr20','kind':'rppr','dumping':0.20},
+                        {'name':'rpr30','kind':'rppr','dumping':0.30},
+                        {'name':'rpr40','kind':'rppr','dumping':0.40},
+                        {'name':'rpr50','kind':'rppr','dumping':0.50},
+                        {'name':'rpr55','kind':'rppr','dumping':0.55},
+                        {'name':'rpr60','kind':'rppr','dumping':0.60},
+                        {'name':'rpr65','kind':'rppr','dumping':0.65},
+                        {'name':'rpr70','kind':'rppr','dumping':0.70},
+                        {'name':'rpr75','kind':'rppr','dumping':0.75},
+                        {'name':'rpr80','kind':'rppr','dumping':0.80},
+                        {'name':'rpr85','kind':'rppr','dumping':0.85},
+                        {'name':'rpr90','kind':'rppr','dumping':0.90},
+                        {'name':'rpr95','kind':'rppr','dumping':0.95}]
 
 def countExp(x):
         c=0
