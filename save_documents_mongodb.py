@@ -9,7 +9,7 @@ textrazor.api_key = "6f1b804f96acb106ba551b02b98416111947d98a9ff14830a2931c52"
 
 def get_annotation_text_razor(text):
     client = textrazor.TextRazor(extractors=["entities"])
-    response = client.analyze(text.decode('utf-8','ignore'))
+    response = client.analyze(text.decode('latin-1','ignore'))#.encode('utf-8','ignore')
     wikidataEntities=[]
     wikidataEntitiesSet=set()
     dbpediaEntities=[]
@@ -95,25 +95,29 @@ def save_hc_annotations():
     client = pm.MongoClient()
     db=client.hc
     for doc in db.re0.find():
-        if 'entities_wikidata' not in doc:
+        if 'entities_dbpedia_razor' not in doc:
             print doc['id_doc']
-            wikidataEntities=get_annotation_text_razor(doc['text'])
+            wikidataEntities,dbpediaEntities=get_annotation_text_razor(doc['text'])
             print "wikidata %s"%len(wikidataEntities)
             db.re0.update({'_id':doc['_id']},{'$set':{
                               'entities_wikidata':wikidataEntities}})
+            db.re0.update({'_id':doc['_id']},{'$set':{
+                          'entities_dbpedia_razor':dbpediaEntities}})
     for doc in db.re1.find():
-        if 'entities_wikidata' not in doc:
+        if 'entities_dbpedia_razor' not in doc:
             print doc['id_doc']
-            wikidataEntities=get_annotation_text_razor(doc['text'])
+            wikidataEntities,dbpediaEntities=get_annotation_text_razor(doc['text'])
             print "wikidata %s"%len(wikidataEntities)
             db.re1.update({'_id':doc['_id']},{'$set':{
                               'entities_wikidata':wikidataEntities}})
+            db.re1.update({'_id':doc['_id']},{'$set':{
+                          'entities_dbpedia_razor':dbpediaEntities}})
     
     
     
-#save_hc_annotations()
+save_hc_annotations()
 
-save_lp50_documents_and_annotation()
+#save_lp50_documents_and_annotation()
 
 # client = pm.MongoClient()
 # db=client.knoesis
