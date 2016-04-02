@@ -115,7 +115,7 @@ def extrValue(uri):
 
     
 
-def computeGraphAnalytics(DG,data,weigths=None,rc=ranking_configurations_all,wc=None):
+def computeGraphAnalytics(DG,data,rc=ranking_configurations_all,wc=None):
     
     
     #G=DG.to_undirected()
@@ -146,30 +146,52 @@ def computeGraphAnalytics(DG,data,weigths=None,rc=ranking_configurations_all,wc=
     
     
     rankings=[]
-    for conf in rc:
+    if wc is None:
+        wc = {'name':'no_w'}
+    
+#     for conf in rc:
+    total_count=0
+    error_count=0
+    for conf,wht in itertools.product(rc, wc):
         if conf['name'] <> 'pr0':
+            
             if conf['kind']=='pr':
+                total_count+=1
                 try:
-                    currentRanking=nx.pagerank_scipy(DG,alpha=conf['dumping'],max_iter=2000) 
+                    currentRanking=nx.pagerank_scipy(DG,alpha=conf['dumping'],max_iter=2000) if wht['name'] == 'no_w' else nx.pagerank_scipy(DG,alpha=conf['dumping'],max_iter=2000,weight=wht['name'])
                 except:
                     print 'error converging'
                     print conf
+                    print wht
                     currentRanking=[]
+                    error_count+=1
+                    var = traceback.format_exc()
+                    print var
             elif conf['kind']=='ppr':
                 try:
-                    currentRanking=nx.pagerank_scipy(DG,personalization=personalization,alpha=conf['dumping'],max_iter=2000)
+                    currentRanking=nx.pagerank_scipy(DG,personalization=personalization,alpha=conf['dumping'],max_iter=2000) if wht['name'] == 'no_w' else nx.pagerank_scipy(DG,personalization=personalization,alpha=conf['dumping'],max_iter=2000,weight=wht['name'])
                 except:
                     print 'error converging'
                     print conf
+                    print wht
                     currentRanking=[]
+                    error_count+=1
+                    var = traceback.format_exc()
+                    print var
             elif conf['kind']=='rppr':
                 try:
-                    currentRanking=nx.pagerank_scipy(DG,personalization=relevance_personalization,alpha=conf['dumping'],max_iter=2000)
+                    currentRanking=nx.pagerank_scipy(DG,personalization=relevance_personalization,alpha=conf['dumping'],max_iter=2000)  if wht['name'] == 'no_w' else nx.pagerank_scipy(DG,personalization=relevance_personalization,alpha=conf['dumping'],max_iter=2000,weight=wht['name'])
                 except:
                     print 'error converging'
                     print conf
+                    print wht
                     currentRanking=[]
-            rankings.append(currentRanking)
+                    error_count+=1
+                    var = traceback.format_exc()
+                    print var
+            rankings.append({'weight':wht['name'],'kind':conf['name'],'rank':currentRanking})
+            #rankings.appned(currentRanking)
+    print "toral configurations %s errors in %s "%(total_count,error_count)
     
 
 #     
@@ -186,33 +208,23 @@ def computeGraphAnalytics(DG,data,weigths=None,rc=ranking_configurations_all,wc=
     
     print "number of nodes %s"%len(DG.nodes())
     
-    columns_ranking_set=set()
+#     columns_ranking_set=set()
     for node in DG.nodes(data=True):
         #index.append(extrValue(node[0]))
         index.append(node[0])
 
         current = {'entity':node[0],'pr0':(1./len(startingEntities)) if node[0] in startingEntities else 0,#'name':extrValue(node[0]),
                    'degree':deg[node[0]],'in_degree':i_deg[node[0]],'out_degree':o_deg[node[0]],'starting':node[0] in startingEntities}
-        for i,rank in enumerate(rankings):
-            if len(rank)>0:
-                columns_ranking_set.add(rc[i]['name'])
-                current[rc[i]['name']]=rank[node[0]]
+#         for conf,wht in itertools.product(rc, wc):
+        for rank in rankings:
+            if len(rank['rank'])>0:
+#                 columns_ranking_set.add(rankings[''])
+                current[rank['kind']+" "+rank['weight']]=rank['rank'][node[0]]
         
         
         
         
-#         {
-#                    'prc85':ppRank_classes85[node[0]],'prc90':ppRank_classes90[node[0]],'prc95':ppRank_classes95[node[0]],
-#                    'prc100':ppRank_classes100[node[0]],'prc75':ppRank_classes75[node[0]],'prc50':ppRank_classes50[node[0]],
-#                    'ru85':pRank_und85[node[0]],'ru90':pRank_und90[node[0]],'ru95':pRank_und95[node[0]],
-#                    'ru100':pRank_und100[node[0]],'ru75':pRank_und75[node[0]],'ru50':pRank_und50[node[0]],
-#                    'pru85':ppRank_und85[node[0]],'pru90':ppRank_und90[node[0]],'pru95':ppRank_und95[node[0]],
-#                    'pru100':ppRank_und100[node[0]],'pru75':ppRank_und75[node[0]],'pru50':ppRank_und50[node[0]],
-#                    'r85':pRank85[node[0]],'r90':pRank90[node[0]],'r95':pRank95[node[0]],
-#                    'r100':pRank100[node[0]],'r75':pRank75[node[0]],'r50':pRank50[node[0]],
-#                    'pr85':ppRank85[node[0]],'pr90':ppRank90[node[0]],'pr95':ppRank95[node[0]],
-#                    'pr100':ppRank100[node[0]],'pr75':ppRank75[node[0]],'pr50':ppRank50[node[0]],
-#                    }
+
         data.append(current)
         
     #print data
@@ -226,26 +238,10 @@ def computeGraphAnalytics(DG,data,weigths=None,rc=ranking_configurations_all,wc=
     print "elaborating 1st time"
     
     elab=n
-    #for a in ['pru','pr','r','ru','degree','in_degree','out_degree']:
-    #    elab[a+'_rank']=elab[a]
-
-    #elab=elab[elab.starting == False]
-   
     
-    
-    
-    #elab['pru_rank']=elab['pru_rank'].rank(ascending=False)
-    #elab['pr_rank']=elab['pr_rank'].rank(ascending=False)
-    #elab['ru_rank']=elab['ru_rank'].rank(ascending=False)
-    #elab['r_rank']=elab['r_rank'].rank(ascending=False)
-    #elab['degree_rank']=elab['degree_rank'].rank(ascending=False)
-    #elab['in_degree_rank']=elab['in_degree_rank'].rank(ascending=False)
-    #elab['out_degree_rank']=elab['out_degree_rank'].rank(ascending=False)
-    
-    #n.sort(columns=['r_rank'],inplace=True,ascending=[0])
         
     print "enbtities befor filtering: %s"%len(elab)
-    columns_ranking=[r for r in columns_ranking_set]
+#     columns_ranking=[r for r in columns_ranking_set]
     #elab = elab[(elab['r85']>0.) &( elab['ru85']>0.) &( elab['prc85']>0.) & (elab['pr85']>0.) & (elab['pru85']>0.)]
     print "enbtities after filtering: %s"%len(elab)                                      
     
@@ -358,8 +354,8 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
     
     if len(DG.nodes()) >0:
         weigths={}
-        for e in DG.edges(data=True):
-            print e
+#         for e in DG.edges(data=True):
+#             print e
         if wc is not None and len(wc) > 1:
             
             
@@ -526,7 +522,7 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
                             DG[e[0]][e[1]]['TOT_CORR_classes_max']=tmp_v if tmp_v > 0 else 0
         for e in DG.edges(data=True):
             print e
-        results=computeGraphAnalytics(DG,data,weigths,rc,wc)
+        results=computeGraphAnalytics(DG,data,rc,wc)
         #entityIndx={}
         """ Mongo db why? """
         
@@ -567,6 +563,9 @@ def runTests(params):
 
     client = pm.MongoClient()
     db = client.knoesis
+    g_graph_features=extractGraphFeatures(params)
+    if not os.path.exists(params['folder']):
+        os.makedirs(params['folder'])
     try:
         for a in db.simDoc.find():
             #print os.path.isfile("wikidata_l3_pr_r_doc"+str(a['_id'])+".p")
@@ -574,18 +573,24 @@ def runTests(params):
                 print '-------'
                 print a['_id']
                 if 'recompute_rankings' not in params:
+#                     print "\n document number: %s \n"%a['_id']
+#                     print "starting entities number %s"%len(a[params['entitities_field']])
+#                     entities=map(lambda x: (x[params['entitities_id']],x['relevance']) ,a[params['entitities_field']])
+#                     if 'lookup_entities' in params['database']:
+#                         tmpEnt=entities
+#                         entities=filter(lambda x: x[0] is not None,map(lambda x:(lookupEntitiesId(x[0],params3['database']),x[1]),tmpEnt))
+#                     
                     print "\n document number: %s \n"%a['_id']
                     print "starting entities number %s"%len(a[params['entitities_field']])
                     entities=map(lambda x: (x[params['entitities_id']],x['relevance']) ,a[params['entitities_field']])
                     if 'lookup_entities' in params['database']:
                         tmpEnt=entities
                         entities=filter(lambda x: x[0] is not None,map(lambda x:(lookupEntitiesId(x[0],params3['database']),x[1]),tmpEnt))
-                    
-                    res,DG=getGraph(entities,params['database'],l=params['l'],rc=ranking_configurations_all if 'ranking' not in params else params['ranking'])
-                    
+        
+                    res,DG=getGraph(entities,params['database'],g_graph_features,l=params['l'],rc=ranking_configurations_all if 'ranking' not in params else params['ranking'],wc=weighting_configurations_all if 'wc' not in params else params['wc'])
                     pickle.dump(DG, open(params['files']+str(a['_id'])+"_graph", 'wb'))
                     #nx.write_gml(DG, params['files']+str(a['_id'])+"_graph")
-                    
+                    print res
                 
                 
                 else:
@@ -623,6 +628,7 @@ def runSingleDocumentTest(id_doc,params):
             entities=filter(lambda x: x[0] is not None,map(lambda x:(lookupEntitiesId(x[0],params3['database']),x[1]),tmpEnt))
         
         res,DG=getGraph(entities,params['database'],g_graph_features,l=params['l'],rc=ranking_configurations_all if 'ranking' not in params else params['ranking'],wc=weighting_configurations_all if 'wc' not in params else params['wc'])
+        print res
     except KeyboardInterrupt:
         print "interrupted!!!!"
         pass  # allow ctrl-c to exit the loop    
@@ -650,9 +656,21 @@ params9={'files':'wikidata_l2_rpr/wikidata_l2_pr_r_doc','database':databases['wi
 
 params10={'files':'wikidata_l3_pr_r_rpr/wikidata_l3_pr_r_doc','database':databases['wikidata'],'l':3,'entitities_field':'entities_wikidata','entitities_id':'wikidata_id'}
 
-#runTests(params10)
 
-runSingleDocumentTest(1,params6_1)
+params11={'files':'dbpedia_l1_pr_r_rpr_weight/dbpedia_l1_pr_r_rpr_weight','folder':'dbpedia_l1_pr_r_rpr_weight',
+          'database':databases['dbpedia_bin'],'l':1,'entitities_field':'entities_dbpedia_razor','entitities_id':'wikidata_id'}
+
+params12={'files':'dbpedia_l2_pr_r_rpr_weight/dbpedia_l2_pr_r_rpr_weight','folder':'dbpedia_l2_pr_r_rpr_weight',
+          'database':databases['dbpedia_bin'],'l':2,'entitities_field':'entities_dbpedia_razor','entitities_id':'wikidata_id'}
+
+params13={'files':'dbpedia_l3_pr_r_rpr_weight/dbpedia_l3_pr_r_rpr_weight','folder':'dbpedia_l3_pr_r_rpr_weight',
+          'database':databases['dbpedia_bin'],'l':3,'entitities_field':'entities_dbpedia_razor','entitities_id':'wikidata_id'}
+
+runTests(params11)
+runTests(params12)
+runTests(params13)
+
+#runSingleDocumentTest(1,params6_1)
 
 
 # 
