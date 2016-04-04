@@ -166,28 +166,32 @@ def getNumTriples(db_info):
     num_triples="SELECT count(*) from "+db_info['edge_table']+" "
     print num_triples
     c.execute(num_triples)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
   
 def getIngoingLinks(db_info,n):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_ingoing_links="SELECT count(*) from "+db_info['edge_table']+" WHERE o="+insertStringOrLong(n)+" "
     c.execute(num_ingoing_links)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getNumProp(db_info,prop):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop="SELECT count(*) from "+db_info['edge_table']+" WHERE p="+insertStringOrLong(prop)+" "
     c.execute(num_prop)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getNumPropAndObj(db_info,prop,obj):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT count(*) from "+db_info['edge_table']+" WHERE o="+insertStringOrLong(obj)+" AND p="+insertStringOrLong(prop)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0] 
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1 
 
 def getClassesEntity(db_info,n):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
@@ -201,56 +205,64 @@ def getNumberOfInstances(db_info,cls):
     c=db.cursor()
     num_prop_and_obj="SELECT count(*) from entities_classes WHERE c="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0] 
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getNumInstances(db_info):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT count(distinct e) from entities_classes "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getCountPropOCls(db_info,prop,cls):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT n from scpoc WHERE p="+insertStringOrLong(prop)+" and oc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getCountSClsProp(db_info,prop,cls):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT n from scpoc WHERE p="+insertStringOrLong(prop)+" and sc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getCountSClsOCls(db_info,scls,ocls):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT n from scpoc WHERE sc="+insertStringOrLong(scls)+" and oc="+insertStringOrLong(ocls)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getCountSClsPropOCls(db_info,scls,prop,ocls):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT n from scpoc WHERE sc="+insertStringOrLong(scls)+" and oc="+insertStringOrLong(ocls)+" and p="+insertStringOrLong(prop)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getNumberOfInstancesSCLass(db_info,cls):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT sum(n) from scpoc WHERE sc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getNumberOfInstancesOCLass(db_info,cls):
     db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT sum(n) from scpoc WHERE oc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
-    return c.fetchall()[0][0]
+    result=c.fetchall()
+    return result[0][0] if len(result) > 0 else 1
 
 def getConnected(step,source,target,db_info):
     trip=set()

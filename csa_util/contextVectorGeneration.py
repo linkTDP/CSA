@@ -370,7 +370,13 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
         #         print edges_w
                 
                 for n in DG.nodes():
-                    DG.node[n]['classes']=map(lambda x:{x[0]:getNumberOfInstances(db_info,x[0])},getClassesEntity(db_info,n))#map(lambda x:x[0],getClassesEntity(db_info,n))
+                    classes_list=map(lambda x:{x[0]:getNumberOfInstances(db_info,x[0])},getClassesEntity(db_info,n))
+                    if len(classes_list) == 0:
+                        classes_list=[{3546058:getNumberOfInstances(db_info,3546058)}]
+                    DG.node[n]['classes']=classes_list#map(lambda x:x[0],getClassesEntity(db_info,n))
+                for n in DG.nodes():
+                    print n
+                    print DG.node[n]
                 for n in DG.edges(data=True):
                     #print n
                     edges_w[(n[0],n[1])]['ingoing_links_o']=float(getIngoingLinks(db_info,n[1]))
@@ -430,7 +436,7 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
                             if min_inst_s_class[min_inst_s_class.keys()[0]]>tmp_cls[tmp_cls.keys()[0]]:
                                 min_inst_s_class=tmp_cls
                     
-                    
+#                     print min_inst_o_class
                                 
                     
                     edges_w[(n[0],n[1])]['p_o_class_min']=float(min_inst_o_class[min_inst_o_class.keys()[0]])/float(g_graph_features['n_triples'])
