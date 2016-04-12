@@ -3,6 +3,9 @@ import csa_util.contextVectorGeneration as  cvg
 import os
 import cPickle as pickle
 import pandas as pd
+import multiprocessing as mp
+import time
+import traceback
 
 databases={'dbpedia':{'edge_table':'infobox','db_name':'wiki'},
            'dbpedia_classes':{'edge_table':'infobox_classes','db_name':'wiki'},
@@ -12,6 +15,7 @@ databases={'dbpedia':{'edge_table':'infobox','db_name':'wiki'},
            'neo4j_wikidata':{'neo4j':True},
            
            }
+           
 
 
 ranking_configurations_all=[{'name':'r10','kind':'pr','dumping':0.1},
@@ -80,11 +84,98 @@ ranking_custom=[{'name':'rpr10','kind':'rppr','dumping':0.10},
                         {'name':'rpr90','kind':'rppr','dumping':0.90},
                         {'name':'rpr95','kind':'rppr','dumping':0.95}]
 
+
+test_conncetion_mysql={'host':"0.0.0.0",'port':3307}
+
+def log_result(result):
+    #print ports
+    # This is called whenever foo_pool(i) returns a result.
+    # result_list is modified only by the main process, not the pool workers.
+    ports.append(result)
+    #result_list.append(result)
+
+def conv_unicode(x):
+    return x.replace(u'\u2013','%E2%80%93').replace(u'\u014d','%C5%8D').replace(u'\u0131','%C4%B1').replace(u'\u0130','%C4%B0').replace(u'\u0117','%C4%97')
+    
+def foo_pool(params,a,g_graph_features,por):
+    try:
+        mys_con={'host':'0.0.0.0','port':por}
+        print "\n document number: %s \n"%a['_id']
+        print "starting entities number %s"%len(a[params['entitities_field']])
+        entities=map(lambda x: (x[params['entitities_id']],x['relevance']) ,a[params['entitities_field']])
+        #print entities
+        if 'lookup_entities' in params['database']:
+            tmpEnt=entities
+            entities=[]
+            #print tmpEnt
+            for e in tmpEnt:
+                #print e[0]
+                ret=cvg.lookupEntitiesId(conv_unicode(e[0]),params['database'],mys_con)
+                if ret is not None:
+                    entities.append((ret,e[1]))
+            #entities=filter(lambda x: x[0] is not None,map(lambda x:(cvg.lookupEntitiesId(x[0],params['database'],mys_con),x[1]),tmpEnt))
+            print len(entities)
+        print 'pass_lockup'
+        res,DG=cvg.getGraph(entities,params['database'],g_graph_features,mysql=mys_con,l=params['l'],rc=ranking_configurations_all if 'ranking' not in params else params['ranking'],wc=weighting_configurations_all if 'wc' not in params else params['wc'])
+        pickle.dump(DG, open(params['files']+str(a['_id'])+"_graph", 'wb'))
+
+        if res is not None and not ('only_graph' in params and params['only_graph']):
+
+            df = pd.DataFrame(res)
+            #print df.columns
+            records=df.to_dict("records")
+            pickle.dump( records, open( params['files']+str(a['_id'])+".p", "wb" ) )#to remove
+    except:
+        print traceback.format_exc()
+    return por
+    
+def runTestsLP50_multi(params):
+    pool = mp.Pool()#processes=len(ports)*10
+    client = pm.MongoClient()
+    db = client.knoesis
+    g_graph_features=cvg.extractGraphFeatures(params,test_conncetion_mysql)
+    if not os.path.exists(params['folder']):
+        os.makedirs(params['folder'])
+    try:
+        for a in db.simDoc.find():
+            #print os.path.isfile("wikidata_l3_pr_r_doc"+str(a['_id'])+".p")
+            if not os.path.isfile(params['files']+str(a['_id'])+".p") or ('only_docs' in params and a['_id'] in params['only_docs']) or ('recompute_rankings' in params and params['recompute_rankings']):  
+                print '-------'
+                print a['_id']
+                while len(ports)==0:
+                    time.sleep(5)
+                    #print 'time'
+                pool.apply_async(foo_pool, args = (params,a,g_graph_features,ports.pop() ), callback = log_result)
+        pool.close()
+        pool.join()
+    except KeyboardInterrupt:
+        print "interrupted!!!!"
+        pass  # allow ctrl-c to exit the loop
+
+def runTestsHC_nom(params):
+    #pool = mp.Pool()#processes=len(ports)*10
+    client = pm.MongoClient()
+    db = client.knoesis
+    g_graph_features=cvg.extractGraphFeatures(params,{'host':"0.0.0.0",'port':3308})
+    if not os.path.exists(params['folder']):
+        os.makedirs(params['folder'])
+    
+    for a in db.simDoc.find():
+        #print os.path.isfile("wikidata_l3_pr_r_doc"+str(a['_id'])+".p")
+        if not os.path.isfile(params['files']+str(a['_id'])+"_graph"):  
+            print '-------'
+            print a['_id']
+            while len(ports)==0:
+                time.sleep(5)
+                #print 'time'
+            foo_pool(params,a,g_graph_features,3308 )
+            
+        
 def runTestsLP50(params):
 
     client = pm.MongoClient()
     db = client.knoesis
-    g_graph_features=cvg.extractGraphFeatures(params)
+    g_graph_features=cvg.extractGraphFeatures(params,test_conncetion_mysql)
     if not os.path.exists(params['folder']):
         os.makedirs(params['folder'])
     try:
@@ -106,9 +197,9 @@ def runTestsLP50(params):
                     entities=map(lambda x: (x[params['entitities_id']],x['relevance']) ,a[params['entitities_field']])
                     if 'lookup_entities' in params['database']:
                         tmpEnt=entities
-                        entities=filter(lambda x: x[0] is not None,map(lambda x:(cvg.lookupEntitiesId(x[0],params3['database']),x[1]),tmpEnt))
+                        entities=filter(lambda x: x[0] is not None,map(lambda x:(cvg.lookupEntitiesId(x[0],params3['database'],test_conncetion_mysql),x[1]),tmpEnt))
         
-                    res,DG=cvg.getGraph(entities,params['database'],g_graph_features,l=params['l'],rc=ranking_configurations_all if 'ranking' not in params else params['ranking'],wc=weighting_configurations_all if 'wc' not in params else params['wc'])
+                    res,DG=cvg.getGraph(entities,params['database'],g_graph_features,mysql=test_conncetion_mysql,l=params['l'],rc=ranking_configurations_all if 'ranking' not in params else params['ranking'],wc=weighting_configurations_all if 'wc' not in params else params['wc'])
                     pickle.dump(DG, open(params['files']+str(a['_id'])+"_graph", 'wb'))
                     #nx.write_gml(DG, params['files']+str(a['_id'])+"_graph")
                     #print res
@@ -155,7 +246,7 @@ def runSingleDocumentTest(id_doc,params):
         pass  # allow ctrl-c to exit the loop    
     
 
-
+ports = [3307,3308,3307,3308,3307,3308,3307,3308,3307,3308,3307,3308,3307,3308]
 
 params1={'files':'wikidata_l3_pr_r/wikidata_l3_pr_r_doc','database':databases['wikidata'],'l':3}
 params2={'files':'wikidata_l3_pr_r/wikidata_l3_pr_r_doc','database':databases['wikidata'],'l':3,'only_graph':True,'only_docs':[1,2,3,4,5]}#not working
@@ -187,6 +278,7 @@ params12={'files':'dbpedia_l2_pr_r_rpr_weight/dbpedia_l2_pr_r_rpr_weight','folde
 params13={'files':'dbpedia_l3_pr_r_rpr_weight/dbpedia_l3_pr_r_rpr_weight','folder':'dbpedia_l3_pr_r_rpr_weight',
           'database':databases['dbpedia_bin'],'l':3,'entitities_field':'entities_dbpedia_razor','entitities_id':'wikidata_id'}
 
-runTestsLP50(params11)
-runTestsLP50(params12)
-runTestsLP50(params13)
+runTestsLP50_multi(params11)
+#runTestsHC_nom(params11)
+runTestsLP50_multi(params12)
+runTestsLP50_multi(params13)

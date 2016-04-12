@@ -9,7 +9,7 @@ textrazor.api_key = "6f1b804f96acb106ba551b02b98416111947d98a9ff14830a2931c52"
 
 def get_annotation_text_razor(text):
     client = textrazor.TextRazor(extractors=["entities"])
-    response = client.analyze(text.decode('latin-1','ignore'))#.encode('utf-8','ignore')
+    response = client.analyze(text)#.encode('utf-8','ignore').encode('utf-8','ignore')
     wikidataEntities=[]
     wikidataEntitiesSet=set()
     dbpediaEntities=[]

@@ -53,7 +53,7 @@ Query getting the properties between two nodes
 """
 
 
-def getPropsBetweenNodes(source,target,db_info):
+def getPropsBetweenNodes(source,target,db_info,mysql_conf):
     return "SELECT DISTINCT p FROM "+db_info['edge_table']+" WHERE s="+insertStringOrLong(source)+" AND o="+insertStringOrLong(target)
 
 
@@ -90,7 +90,7 @@ def getIndeg(entity):
 def translateStringLong(x):
     return x.replace("'","''") if not isinstance(x, (int,long)) else x
 
-def getQueriesExpansion(step,source,db_info):
+def getQueriesExpansion(step,source,db_info,mysql_conf):
     queryList=[]
     # firast way
     params=getArraiesDirection(step)
@@ -104,9 +104,9 @@ def getQueriesExpansion(step,source,db_info):
         queryList.append((query,p))
     return queryList
 
-def getExpansion(step,source,db_info):
+def getExpansion(step,source,db_info,mysql_conf):
     trip=set()
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     invProp={}
     for query in getQueriesExpansion(step,translateStringLong(source) ,db_info):
         try:
@@ -160,8 +160,8 @@ def getExpansion(step,source,db_info):
             print var
     return trip,invProp
 
-def getNumTriples(db_info):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getNumTriples(db_info,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_triples="SELECT count(*) from "+db_info['edge_table']+" "
     print num_triples
@@ -169,104 +169,106 @@ def getNumTriples(db_info):
     result=c.fetchall()
     return result[0][0] if len(result) > 0 else 1
   
-def getIngoingLinks(db_info,n):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getIngoingLinks(db_info,n,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_ingoing_links="SELECT count(*) from "+db_info['edge_table']+" WHERE o="+insertStringOrLong(n)+" "
     c.execute(num_ingoing_links)
     result=c.fetchall()
     return result[0][0] if len(result) > 0 else 1
 
-def getNumProp(db_info,prop):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getNumProp(db_info,prop,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_prop="SELECT count(*) from "+db_info['edge_table']+" WHERE p="+insertStringOrLong(prop)+" "
     c.execute(num_prop)
     result=c.fetchall()
     return result[0][0] if len(result) > 0 else 1
 
-def getNumPropAndObj(db_info,prop,obj):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getNumPropAndObj(db_info,prop,obj,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT count(*) from "+db_info['edge_table']+" WHERE o="+insertStringOrLong(obj)+" AND p="+insertStringOrLong(prop)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
     return result[0][0] if len(result) > 0 else 1 
 
-def getClassesEntity(db_info,n):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getClassesEntity(db_info,n,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT distinct c from entities_classes WHERE e="+insertStringOrLong(n)+" "
     c.execute(num_prop_and_obj)
     return c.fetchall()
 
-def getNumberOfInstances(db_info,cls):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getNumberOfInstances(db_info,cls,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT count(*) from entities_classes WHERE c="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
     return result[0][0] if len(result) > 0 else 1
 
-def getNumInstances(db_info):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getNumInstances(db_info,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT count(distinct e) from entities_classes "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
     return result[0][0] if len(result) > 0 else 1
 
-def getCountPropOCls(db_info,prop,cls):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+
+
+def getCountPropOCls(db_info,prop,cls,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
-    num_prop_and_obj="SELECT n from scpoc WHERE p="+insertStringOrLong(prop)+" and oc="+insertStringOrLong(cls)+" "
+    num_prop_and_obj="SELECT sum(n) from scpoc WHERE p="+insertStringOrLong(prop)+" and oc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
-    return result[0][0] if len(result) > 0 else 1
+    return result[0][0] if result[0][0] is not None else 1
 
-def getCountSClsProp(db_info,prop,cls):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getCountSClsProp(db_info,prop,cls,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
-    num_prop_and_obj="SELECT n from scpoc WHERE p="+insertStringOrLong(prop)+" and sc="+insertStringOrLong(cls)+" "
+    num_prop_and_obj="SELECT sum(n) from scpoc WHERE p="+insertStringOrLong(prop)+" and sc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
-    return result[0][0] if len(result) > 0 else 1
+    return result[0][0] if result[0][0] is not None else 1
 
-def getCountSClsOCls(db_info,scls,ocls):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getCountSClsOCls(db_info,scls,ocls,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
-    num_prop_and_obj="SELECT n from scpoc WHERE sc="+insertStringOrLong(scls)+" and oc="+insertStringOrLong(ocls)+" "
+    num_prop_and_obj="SELECT sum(n) from scpoc WHERE sc="+insertStringOrLong(scls)+" and oc="+insertStringOrLong(ocls)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
-    return result[0][0] if len(result) > 0 else 1
+    return result[0][0] if result[0][0] is not None else 1
 
-def getCountSClsPropOCls(db_info,scls,prop,ocls):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getCountSClsPropOCls(db_info,scls,prop,ocls,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
-    num_prop_and_obj="SELECT n from scpoc WHERE sc="+insertStringOrLong(scls)+" and oc="+insertStringOrLong(ocls)+" and p="+insertStringOrLong(prop)+" "
+    num_prop_and_obj="SELECT sum(n) from scpoc WHERE sc="+insertStringOrLong(scls)+" and oc="+insertStringOrLong(ocls)+" and p="+insertStringOrLong(prop)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
-    return result[0][0] if len(result) > 0 else 1
+    return result[0][0] if result[0][0] is not None else 1
 
-def getNumberOfInstancesSCLass(db_info,cls):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getNumberOfInstancesSCLass(db_info,cls,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT sum(n) from scpoc WHERE sc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
-    return result[0][0] if len(result) > 0 else 1
+    return result[0][0] if result[0][0] is not None else 1
 
-def getNumberOfInstancesOCLass(db_info,cls):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def getNumberOfInstancesOCLass(db_info,cls,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     num_prop_and_obj="SELECT sum(n) from scpoc WHERE oc="+insertStringOrLong(cls)+" "
     c.execute(num_prop_and_obj)
     result=c.fetchall()
-    return result[0][0] if len(result) > 0 else 1
+    return result[0][0] if result[0][0] is not None else 1
 
-def getConnected(step,source,target,db_info):
+def getConnected(step,source,target,db_info,mysql_conf):
     trip=set()
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     invProp={}
     for query in getQueries(step,translateStringLong(source) , translateStringLong(target)  ,db_info):
         try:
@@ -287,7 +289,7 @@ def getConnected(step,source,target,db_info):
                     tmpPropArray=None
                     if query[1][ed]:
                         c=db.cursor()
-                        c.execute(getPropsBetweenNodes(translateStringLong(res[ed]),translateStringLong(res[ed+1]) ,db_info))
+                        c.execute(getPropsBetweenNodes(translateStringLong(res[ed]),translateStringLong(res[ed+1]) ,db_info,mysql_conf))
                         proper = c.fetchall()
                         tmpPropArray=[p[0] for p in proper]
                         #propSet.update(propArray)
@@ -296,7 +298,7 @@ def getConnected(step,source,target,db_info):
                         curEdge=(res[ed],res[ed+1])
                     else:
                         c=db.cursor()
-                        c.execute(getPropsBetweenNodes(translateStringLong(res[ed+1]),translateStringLong(res[ed]),db_info))
+                        c.execute(getPropsBetweenNodes(translateStringLong(res[ed+1]),translateStringLong(res[ed]),db_info,mysql_conf))
                         proper = c.fetchall()
                         tmpPropArray=[p[0] for p in proper]
                         #propSet.update(propArray)
@@ -321,8 +323,8 @@ def getConnected(step,source,target,db_info):
     return trip,invProp
 
 
-def lookupEntitiesId(x,db_info):
-    db=MySQLdb.connect("localhost","root","mysqldata",db_info['db_name'])
+def lookupEntitiesId(x,db_info,mysql_conf):
+    db=MySQLdb.connect(host=mysql_conf['host'],user="root",port=mysql_conf['port'],passwd="mysqldata",db=db_info['db_name'])
     c=db.cursor()
     #print "SELECT s from "+db_info['lookup_entities']+" WHERE name ='"+x.replace("'","''")+"' "
     c.execute("SELECT s from "+db_info['lookup_entities']+" WHERE name ='"+x.replace("'","''")+"' ")

@@ -10,6 +10,7 @@ from query_utils import *
 import cPickle as pickle
 import os
 
+mysql_conf={'host':'localhost','port':3306}
 
 databases={'dbpedia':{'edge_table':'infobox','db_name':'wiki'},
            'dbpedia_classes':{'edge_table':'infobox_classes','db_name':'wiki'},
@@ -17,7 +18,6 @@ databases={'dbpedia':{'edge_table':'infobox','db_name':'wiki'},
            'dbpedia_bin':{'edge_table':'infobox','db_name':'wikipedia','lookup_entities':'entities','lookup_properties':'properties'},
            'dbpedia_class_bin':{'edge_table':'infobox_classes','db_name':'wikipedia','lookup_entities':'entities','lookup_properties':'properties'},
            'neo4j_wikidata':{'neo4j':True},
-           
            }
 
 
@@ -161,34 +161,34 @@ def computeGraphAnalytics(DG,data,rc=ranking_configurations_all,wc=None):
                     currentRanking=nx.pagerank_scipy(DG,alpha=conf['dumping'],max_iter=2000) if wht['name'] == 'no_w' else nx.pagerank_scipy(DG,alpha=conf['dumping'],max_iter=2000,weight=wht['name'])
                 except:
                     print 'error converging'
-                    print conf
-                    print wht
+                    #print conf
+                    #print wht
                     currentRanking=[]
                     error_count+=1
                     var = traceback.format_exc()
-                    print var
+                    #print var
             elif conf['kind']=='ppr':
                 try:
                     currentRanking=nx.pagerank_scipy(DG,personalization=personalization,alpha=conf['dumping'],max_iter=2000) if wht['name'] == 'no_w' else nx.pagerank_scipy(DG,personalization=personalization,alpha=conf['dumping'],max_iter=2000,weight=wht['name'])
                 except:
                     print 'error converging'
-                    print conf
-                    print wht
+                    #print conf
+                    #print wht
                     currentRanking=[]
                     error_count+=1
                     var = traceback.format_exc()
-                    print var
+                    #print var
             elif conf['kind']=='rppr':
                 try:
                     currentRanking=nx.pagerank_scipy(DG,personalization=relevance_personalization,alpha=conf['dumping'],max_iter=2000)  if wht['name'] == 'no_w' else nx.pagerank_scipy(DG,personalization=relevance_personalization,alpha=conf['dumping'],max_iter=2000,weight=wht['name'])
                 except:
                     print 'error converging'
-                    print conf
-                    print wht
+                    #print conf
+                    #print wht
                     currentRanking=[]
                     error_count+=1
                     var = traceback.format_exc()
-                    print var
+                    #print var
             rankings.append({'weight':wht['name'],'kind':conf['name'],'rank':currentRanking})
             #rankings.appned(currentRanking)
     print "toral configurations %s errors in %s "%(total_count,error_count)
@@ -278,7 +278,7 @@ and a list of Starting Entities
 l is the max path lenght for the queries
 """
 
-def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=None):
+def getGraph(data,db_info,g_graph_features,mysql=mysql_conf,l=3,rc=ranking_configurations_all,wc=None):
     
     
     entitySetF= set([x[0] for x in data])
@@ -286,7 +286,7 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
     accumulator=set()
     accProp={}
     print 'starting entities'
-    pprint(entitySetF)
+    #pprint(entitySetF)
     
     print "\n start querying"
     
@@ -296,7 +296,7 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
 
         for step in range(l):#4 era 3 CHANGE L
             if 'neo4j' not in db_info:
-                cur,prop = getConnected(step,a,b,db_info)
+                cur,prop = getConnected(step,a,b,db_info,mysql)
             else:
                 cur,prop = getTriplesNeo(step,a,b)
             accumulator=accumulator|cur
@@ -328,7 +328,7 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
     
             print (l/2)
             if 'neo4j' not in db_info:
-                cur,prop = getExpansion((l/2),a,db_info)
+                cur,prop = getExpansion((l/2),a,db_info,mysql)
             else:
                 pass
             #TODO
@@ -370,20 +370,20 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
         #         print edges_w
                 
                 for n in DG.nodes():
-                    classes_list=map(lambda x:{x[0]:getNumberOfInstances(db_info,x[0])},getClassesEntity(db_info,n))
+                    classes_list=map(lambda x:{x[0]:getNumberOfInstances(db_info,x[0],mysql)},getClassesEntity(db_info,n,mysql))
                     if len(classes_list) == 0:
-                        classes_list=[{3546058:getNumberOfInstances(db_info,3546058)}]
+                        classes_list=[{3546058:getNumberOfInstances(db_info,3546058,mysql)}]
                     DG.node[n]['classes']=classes_list#map(lambda x:x[0],getClassesEntity(db_info,n))
-                for n in DG.nodes():
-                    print n
-                    print DG.node[n]
+                #for n in DG.nodes():
+                #    print n
+                #    print DG.node[n]
                 for n in DG.edges(data=True):
                     #print n
-                    edges_w[(n[0],n[1])]['ingoing_links_o']=float(getIngoingLinks(db_info,n[1]))
+                    edges_w[(n[0],n[1])]['ingoing_links_o']=float(getIngoingLinks(db_info,n[1],mysql))
                     edges_w[(n[0],n[1])]['p_o']=edges_w[(n[0],n[1])]['ingoing_links_o']/float(g_graph_features['n_triples'])
-                    edges_w[(n[0],n[1])]['n_prop']=reduce(lambda x,y:x+y,map(lambda x:float(getNumProp(db_info,x)),n[2]['prop']))
+                    edges_w[(n[0],n[1])]['n_prop']=reduce(lambda x,y:x+y,map(lambda x:float(getNumProp(db_info,x,mysql)),n[2]['prop']))
                     edges_w[(n[0],n[1])]['p_p']=edges_w[(n[0],n[1])]['n_prop']/float(g_graph_features['n_triples'])
-                    edges_w[(n[0],n[1])]['n_prop_and_obj']=reduce(lambda x,y:x+y,map(lambda x:float(getNumPropAndObj(db_info,x,n[1])),n[2]['prop']))
+                    edges_w[(n[0],n[1])]['n_prop_and_obj']=reduce(lambda x,y:x+y,map(lambda x:float(getNumPropAndObj(db_info,x,n[1],mysql)),n[2]['prop']))
                     edges_w[(n[0],n[1])]['p_o|p']=edges_w[(n[0],n[1])]['n_prop_and_obj']/edges_w[(n[0],n[1])]['n_prop']
                     edges_w[(n[0],n[1])]['p_o_and_p']=edges_w[(n[0],n[1])]['n_prop_and_obj']/float(g_graph_features['n_triples'])
                     # n[2]['prop'] propieta n[1]['classes'] classes?
@@ -400,17 +400,17 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
                         for prop in n[2]['prop']:
                             #print cls.keys()[0]
                             if cls.keys()[0] not in tmp_p_oclass_count:                                
-                                tmp_p_oclass_count[cls.keys()[0]]=getCountPropOCls(db_info,prop,cls.keys()[0])
+                                tmp_p_oclass_count[cls.keys()[0]]=getCountPropOCls(db_info,prop,cls.keys()[0],mysql)
                             else:
-                                tmp_p_oclass_count[cls.keys()[0]]=tmp_p_oclass_count[cls.keys()[0]]+getCountPropOCls(db_info,prop,cls.keys()[0])
+                                tmp_p_oclass_count[cls.keys()[0]]=tmp_p_oclass_count[cls.keys()[0]]+getCountPropOCls(db_info,prop,cls.keys()[0],mysql)
                         if not max_inst_o_class and not min_inst_o_class:
 #                             max_inst_o_class=cls
 #                             min_inst_o_class=cls
-                            tmp_cls={cls.keys()[0]:getNumberOfInstancesOCLass(db_info,cls.keys()[0])}
+                            tmp_cls={cls.keys()[0]:getNumberOfInstancesOCLass(db_info,cls.keys()[0],mysql)}
                             max_inst_o_class=tmp_cls
                             min_inst_o_class=tmp_cls
                         else:
-                            tmp_cls={cls.keys()[0]:getNumberOfInstancesOCLass(db_info,cls.keys()[0])}
+                            tmp_cls={cls.keys()[0]:getNumberOfInstancesOCLass(db_info,cls.keys()[0],mysql)}
                             if max_inst_o_class[max_inst_o_class.keys()[0]]<tmp_cls[tmp_cls.keys()[0]]:
                                 max_inst_o_class=tmp_cls
                             if min_inst_o_class[min_inst_o_class.keys()[0]]>tmp_cls[tmp_cls.keys()[0]]:
@@ -420,17 +420,17 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
                         for prop in n[2]['prop']:
                             #print cls.keys()[0]
                             if cls.keys()[0] not in tmp_sclass_p_count:                                
-                                tmp_sclass_p_count[cls.keys()[0]]=getCountSClsProp(db_info,prop,cls.keys()[0])
+                                tmp_sclass_p_count[cls.keys()[0]]=getCountSClsProp(db_info,prop,cls.keys()[0],mysql)
                             else:
-                                tmp_sclass_p_count[cls.keys()[0]]=tmp_sclass_p_count[cls.keys()[0]]+getCountSClsProp(db_info,prop,cls.keys()[0])
+                                tmp_sclass_p_count[cls.keys()[0]]=tmp_sclass_p_count[cls.keys()[0]]+getCountSClsProp(db_info,prop,cls.keys()[0],mysql)
                         if not max_inst_s_class and not min_inst_s_class:
 #                             max_inst_s_class=cls
 #                             min_inst_s_class=cls
-                            tmp_cls={cls.keys()[0]:getNumberOfInstancesSCLass(db_info,cls.keys()[0])}
+                            tmp_cls={cls.keys()[0]:getNumberOfInstancesSCLass(db_info,cls.keys()[0],mysql)}
                             max_inst_s_class=tmp_cls
                             min_inst_s_class=tmp_cls
                         else:
-                            tmp_cls={cls.keys()[0]:getNumberOfInstancesSCLass(db_info,cls.keys()[0])}
+                            tmp_cls={cls.keys()[0]:getNumberOfInstancesSCLass(db_info,cls.keys()[0],mysql)}
                             if max_inst_s_class[max_inst_s_class.keys()[0]]<tmp_cls[tmp_cls.keys()[0]]:
                                 max_inst_s_class=tmp_cls
                             if min_inst_s_class[min_inst_s_class.keys()[0]]>tmp_cls[tmp_cls.keys()[0]]:
@@ -442,7 +442,7 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
                     edges_w[(n[0],n[1])]['p_o_class_min']=float(min_inst_o_class[min_inst_o_class.keys()[0]])/float(g_graph_features['n_triples'])
                     edges_w[(n[0],n[1])]['p_o_class_max']=float(max_inst_o_class[max_inst_o_class.keys()[0]])/float(g_graph_features['n_triples'])
                     
-        
+                    #print tmp_p_oclass_count
                     edges_w[(n[0],n[1])]['p_o_class_max_p']=float(tmp_p_oclass_count[max_inst_o_class.keys()[0]])/float(g_graph_features['n_triples'])
                     edges_w[(n[0],n[1])]['p_o_class_min_p']=float(tmp_p_oclass_count[min_inst_o_class.keys()[0]])/float(g_graph_features['n_triples'])
                     
@@ -453,17 +453,17 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
                     edges_w[(n[0],n[1])]['p_s_class_min_p']=float(tmp_sclass_p_count[min_inst_s_class.keys()[0]])/float(g_graph_features['n_triples'])
                     # min_inst_s_class.keys()[0] min_inst_o_class.keys()[0]]
                     
-                    edges_w[(n[0],n[1])]['sc_oc_class_min']=float(getCountSClsOCls(db_info,min_inst_s_class.keys()[0],min_inst_o_class.keys()[0]))/float(g_graph_features['n_triples'])
-                    edges_w[(n[0],n[1])]['sc_oc_class_max']=float(getCountSClsOCls(db_info,max_inst_s_class.keys()[0],max_inst_o_class.keys()[0]))/float(g_graph_features['n_triples'])
+                    edges_w[(n[0],n[1])]['sc_oc_class_min']=float(getCountSClsOCls(db_info,min_inst_s_class.keys()[0],min_inst_o_class.keys()[0],mysql))/float(g_graph_features['n_triples'])
+                    edges_w[(n[0],n[1])]['sc_oc_class_max']=float(getCountSClsOCls(db_info,max_inst_s_class.keys()[0],max_inst_o_class.keys()[0],mysql))/float(g_graph_features['n_triples'])
                     
                     
-                    edges_w[(n[0],n[1])]['sc_p_oc_class_min']=float(reduce(lambda x,y:x+y,map(lambda x:getCountSClsPropOCls(db_info,min_inst_s_class.keys()[0],x,min_inst_o_class.keys()[0]),n[2]['prop'])))/float(g_graph_features['n_triples'])
-                    edges_w[(n[0],n[1])]['sc_p_oc_class_max']=float(reduce(lambda x,y:x+y,map(lambda x:getCountSClsPropOCls(db_info,max_inst_s_class.keys()[0],x,max_inst_o_class.keys()[0]),n[2]['prop'])))/float(g_graph_features['n_triples'])
+                    edges_w[(n[0],n[1])]['sc_p_oc_class_min']=float(reduce(lambda x,y:x+y,map(lambda x:getCountSClsPropOCls(db_info,min_inst_s_class.keys()[0],x,min_inst_o_class.keys()[0],mysql),n[2]['prop'])))/float(g_graph_features['n_triples'])
+                    edges_w[(n[0],n[1])]['sc_p_oc_class_max']=float(reduce(lambda x,y:x+y,map(lambda x:getCountSClsPropOCls(db_info,max_inst_s_class.keys()[0],x,max_inst_o_class.keys()[0],mysql),n[2]['prop'])))/float(g_graph_features['n_triples'])
                     
                     
                     #to_do avg
                     #print tmp_p_oclass_count
-                print wc    
+                #print wc    
                 for w_conf in wc:
                     if w_conf['name'] == 'no_w':
                         weigths['no_w']={}
@@ -526,8 +526,8 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
 #                             print e p_s_class_max_p
                             tmp_v = np.log(edges_w[(e[0],e[1])]['sc_p_oc_class_max']/(edges_w[(e[0],e[1])]['p_p']*edges_w[(e[0],e[1])]['p_o_class_max']*edges_w[(e[0],e[1])]['p_s_class_max']))
                             DG[e[0]][e[1]]['TOT_CORR_classes_max']=tmp_v if tmp_v > 0 else 0
-        for e in DG.edges(data=True):
-            print e
+        #for e in DG.edges(data=True):
+        #    print e
         results=computeGraphAnalytics(DG,data,rc,wc)
         #entityIndx={}
         """ Mongo db why? """
@@ -556,11 +556,11 @@ def getGraph(data,db_info,g_graph_features,l=3,rc=ranking_configurations_all,wc=
     
     return results,DG
 
-def extractGraphFeatures(params): 
+def extractGraphFeatures(params,mysql): 
     g_graph_features={}
     if 'wc' not in params or ('wc' in params and len(params['wc'])>1):
         print 'analizing knowledge graph...'
-        g_graph_features['n_triples']=getNumTriples(params['database'])
+        g_graph_features['n_triples']=getNumTriples(params['database'],mysql)
         #g_graph_features['n_instances']=getNumInstances((params['database']))
         #print g_graph_features['n_instances']
     return g_graph_features

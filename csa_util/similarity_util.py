@@ -76,10 +76,13 @@ def maxMerging(sym_text,sym_context):
     return newSym,vect
 
 def lsa(matrix,components):
-    svd = TruncatedSVD(n_components=components)
-    lsa = make_pipeline(svd, Normalizer(copy=False))
+    if components < matrix.shape[1]: 
+        svd = TruncatedSVD(n_components=components )
+        lsa = make_pipeline(svd, Normalizer(copy=False))
 
-    return lsa.fit_transform(matrix)
+        return lsa.fit_transform(matrix)
+    else:
+        return matrix 
 
 # survey
 def calculateBaselines():
@@ -282,7 +285,15 @@ def generateCSAMatrix(documents,params):
             if f['entity'] not in invIndex:
                 invIndex[f['entity']]=countFeatures
                 countFeatures+=1
-            current[count,invIndex[f['entity']]]=f[params['ranking']['value']]
+            if 'value' in params and params['value'] == 'pr0':
+                current[count,invIndex[f['entity']]]=f['pr0']
+            else:
+                
+                if params['ranking']['value']+" "+params['graph_w']['name'] in f:
+                    current[count,invIndex[f['entity']]]=f[params['ranking']['value']+" "+params['graph_w']['name']]
+                else:
+                    current[count,invIndex[f['entity']]]=0
+                    print '-- missing rank --'
         count+=1
     current=np.nan_to_num(current)
     return current
@@ -294,7 +305,7 @@ def generateCSAMatrix(documents,params):
 """
 input: list containing for each document all the rankings
 """
-def gridSearchCombination(documents,metixes):
+def gridSearchCombination(documents,metixes,merging=False):
     
     
     ranking=[
@@ -312,23 +323,41 @@ def gridSearchCombination(documents,metixes):
              {'name':'relev ppr 50','value':'rpr50'},{'name':'relev ppr 55','value':'rpr55'},{'name':'relev ppr 60','value':'rpr60'},
              {'name':'relev ppr 65','value':'rpr65'},{'name':'relev ppr 70','value':'rpr70'},
              {'name':'relev ppr 75','value':'rpr75'},{'name':'relev ppr 85','value':'rpr85'},
-             {'name':'relev ppr 90','value':'rpr90'},{'name':'relev ppr 95','value':'rpr95'},
-             {'name':'personalize page rank 0','value':'pr0'}]
-    graph_weighting=[{'name':'none'},{'name':'obj_prob'},{'name':'mutaual_prop_obj'},{'name':'interaction_info_s_p_p'},
-                     {'name':'interaction_info_sc_p_oc'},{'name':'total_correlation_info_s_p_o'},{'name':'total_correlation_info_sc_p_oc'}]
-    lsa_conf=[{'name':'not lsa','value':None}]
+             {'name':'relev ppr 90','value':'rpr90'},{'name':'relev ppr 95','value':'rpr95'}]
+             
+    graph_weighting=[{'name':'no_w'},{'name':'p_o'},{'name':'IC_pred'},{'name':'IC_pred'}
+                              ,{'name':'w_join'},{'name':'w_comb'},{'name':'PMI_pred_obj'}
+                              ,{'name':'w_ic_pmi'},{'name':'PMI_classes_min'},{'name':'PMI_classes_max'},
+                              {'name':'INTERACT_classes_min'},{'name':'INTERACT_classes_max'}
+                              ,{'name':'TOT_CORR_classes_max'},{'name':'TOT_CORR_classes_min'},{'name':'INTERACT_spo'}
+                              ,{'name':'TOT_CORR_spo'}]
+    lsa_conf=[{'name':'not lsa','value':None},{'name':'lsa 50','value':50},{'name':'lsa 10','value':10},{'name':'lsa 100','value':100}]
     #,{'name':'lsa 50','value':50},{'name':'lsa 10','value':10},{'name':'lsa 100','value':100},#{'name':'lsa 500','value':500},{'name':'lsa 1000','value':1000}]#
     alpha=[{'name':'alpha 0.05','value':0.05},{'name':'alpha 0.1','value':0.1},{'name':'alpha 0.15','value':0.15},
           {'name':'alpha 0.25','value':0.25},{'name':'alpha 0.50','value':0.50},{'name':'alpha 0.75','value':0.75}]
     
     
     
-    param_grid = {'ranking': ranking, 'lsa':lsa_conf}
+    param_grid = {'ranking': ranking, 'lsa':lsa_conf,'graph_w':graph_weighting}
     
     grid = ParameterGrid(param_grid)
     
     
     tests=[]
+    
+    #pr0 
+    
+    pr0={'name':'personalize page rank 0 no lsa no_w','value':'pr0'}
+    
+    current=generateCSAMatrix(documents,pr0)
+    
+    sym=cosineSimilarity(current)
+
+    vect=getSymilarityVector(sym)
+
+    curTest={'name': pr0['name'],'sym':sym,'vect':vect}
+    
+    tests.append(curTest)
     
     for params in grid:
         print " ".join(map(lambda x: params[x]['name'],params.keys()))
@@ -350,80 +379,80 @@ def gridSearchCombination(documents,metixes):
         
         tests.append(curTest)
         
-        
-        """
-        max
-        """
-        
-        for m in metixes:
-            newSym,vect=maxMerging(m['sym'],sym)
-            tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+m['name']+" max",'sym':newSym,'vect':vect})
-        
-        """
-        alpha
-        """
-        
-        for al in alpha:
-            for m in metixes:
-                newSym,vect=alphaMerging(m['sym'],sym,al['value'])
-                tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+al['name']+" "+m['name'],'sym':newSym,'vect':vect})
-        
-        
-        """
-        adaptative alpha
-        
-        """
-        
-        current=generateCSAMatrix(documents,params)
-        
-        adaMatrix=getAdaptativeAlphaMatrix(current,2)
-        
-        for m in metixes:
-            newSym,vect=AdaptativeAlphaMerging(m['sym'],sym,adaMatrix)
-            tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+m['name']+" adaAlpha2",'sym':newSym,'vect':vect})
+        if merging:
             
-        
-#         current=np.zeros((len(documents),len(entitySet)), dtype=np.float)
-#     
-#         count=0
-#         invIndex={}
-#         countFeatures=0
-#         for i,d in enumerate(documents):
-#             
-#             for f in d:
-#                 if f['entity'] not in invIndex:
-#                     invIndex[f['entity']]=countFeatures
-#                     countFeatures+=1
-#                 current[count,invIndex[f['entity']]]=f[params['ranking']['value']]
-#             count+=1
-        """
-        join
-        """
-        
-        
-        
-        
-        for m in metixes:
-            #print m.keys()
-            if 'matrix' in m:
+            """
+            max
+            """
+            
+            for m in metixes:
+                newSym,vect=maxMerging(m['sym'],sym)
+                tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+m['name']+" max",'sym':newSym,'vect':vect})
+            
+            """
+            alpha
+            """
+            
+            for al in alpha:
+                for m in metixes:
+                    newSym,vect=alphaMerging(m['sym'],sym,al['value'])
+                    tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+al['name']+" "+m['name'],'sym':newSym,'vect':vect})
+            
+            
+            """
+            adaptative alpha
+            
+            """
+            
+            current=generateCSAMatrix(documents,params)
+            
+            adaMatrix=getAdaptativeAlphaMatrix(current,2)
+            
+            for m in metixes:
+                newSym,vect=AdaptativeAlphaMerging(m['sym'],sym,adaMatrix)
+                tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+m['name']+" adaAlpha2",'sym':newSym,'vect':vect})
                 
-                currentConcat = np.hstack((current,m['matrix']))
-                
-                if  params['lsa']['value'] is not None:
+            
+    #         current=np.zeros((len(documents),len(entitySet)), dtype=np.float)
+    #     
+    #         count=0
+    #         invIndex={}
+    #         countFeatures=0
+    #         for i,d in enumerate(documents):
+    #             
+    #             for f in d:
+    #                 if f['entity'] not in invIndex:
+    #                     invIndex[f['entity']]=countFeatures
+    #                     countFeatures+=1
+    #                 current[count,invIndex[f['entity']]]=f[params['ranking']['value']]
+    #             count+=1
+            """
+            join
+            """
+            
+            
+            
+            
+            for m in metixes:
+                #print m.keys()
+                if 'matrix' in m:
                     
-                    currentConcat = lsa(currentConcat,params['lsa']['value'])
+                    currentConcat = np.hstack((current,m['matrix']))
                     
-                sym=cosineSimilarity(currentConcat)
-
-                vect=getSymilarityVector(sym)
-
+                    if  params['lsa']['value'] is not None:
+                        
+                        currentConcat = lsa(currentConcat,params['lsa']['value'])
+                        
+                    sym=cosineSimilarity(currentConcat)
     
+                    vect=getSymilarityVector(sym)
     
-                curTest={'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" join "+m['name'],'sym':sym,'vect':vect}
-                tests.append(curTest)
+        
+        
+                    curTest={'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" join "+m['name'],'sym':sym,'vect':vect}
+                    tests.append(curTest)
         
     return tests
-
 
 """
 
@@ -460,22 +489,240 @@ def calculatePearsonBench(tests,baseline_vector):
     return df_f
 
 
+"""
+
+Pearson
+
+tests structure
+
+name
+sym matrix
+vector
+
+return a dataframe with the results
+
+"""    
+
+def calculatePearsonBenchRetLIstToTrasform(tests,baseline_vector):
+    person=[]
+    pValues=[]
+    for t in tests:
+        p=pearsonr(t['vect'],baseline_vector)
+        person.append(p[0])
+        pValues.append(p[1])
+        #correctPearson.append(pearsonr( np.concatenate((t['vect'],np.ones(50))),np.concatenate((bp_b,np.ones(50))))[0])
+    
+    arrPerson=np.array(person)
+    arrPerson=np.nan_to_num(arrPerson)
+    dfRes=[]
+    for i,t in enumerate(tests):
+        #print arrPerson[i]
+        dfRes.append({'pValue':pValues[i],'pearson':arrPerson[i],'name':tests[i]['name']})
+        
+    
+    return dfRes
+
+
+"""
+input: list containing for each document all the rankings
+"""
+def gridSearchCombinationRetDfRes(documents,metixes,merging=False):
+    
+    results=[]
+    useless1,useless2,bp_b=calculateBaselines()
+    ranking=[
+            {'name':'page rank 10','value':'r10'},{'name':'page rank 20','value':'r20'},{'name':'page rank 30','value':'r30'},{'name':'page rank 40','value':'r40'},
+            {'name':'page rank 50','value':'r50'},{'name':'page rank 55','value':'r55'},{'name':'page rank 60','value':'r60'},{'name':'page rank 65','value':'r65'},
+            {'name':'page rank 70','value':'r70'},
+            {'name':'page rank 75','value':'r75'},{'name':'page rank 85','value':'r85'},
+            {'name':'page rank 90','value':'r90'},{'name':'page rank 95','value':'r95'},   
+            {'name':'personalize page rank 10','value':'pr10'},{'name':'personalize page rank 20','value':'pr20'},{'name':'personalize page rank 30','value':'pr30'},{'name':'personalize page rank 40','value':'pr40'},
+            {'name':'personalize page rank 50','value':'pr50'},{'name':'personalize page rank 55','value':'pr55'},{'name':'personalize page rank 60','value':'pr60'},
+            {'name':'personalize page rank 65','value':'pr65'},{'name':'personalize page rank 70','value':'pr70'},
+            {'name':'personalize page rank 75','value':'pr75'},{'name':'personalize page rank 85','value':'pr85'},
+            {'name':'personalize page rank 90','value':'pr90'},{'name':'personalize page rank 95','value':'pr95'},
+             {'name':'relev ppr 10','value':'rpr10'},{'name':'relev ppr 20','value':'rpr20'},{'name':'relev ppr 30','value':'rpr30'},{'name':'relev ppr 40','value':'rpr40'},
+             {'name':'relev ppr 50','value':'rpr50'},{'name':'relev ppr 55','value':'rpr55'},{'name':'relev ppr 60','value':'rpr60'},
+             {'name':'relev ppr 65','value':'rpr65'},{'name':'relev ppr 70','value':'rpr70'},
+             {'name':'relev ppr 75','value':'rpr75'},{'name':'relev ppr 85','value':'rpr85'},
+             {'name':'relev ppr 90','value':'rpr90'},{'name':'relev ppr 95','value':'rpr95'}]
+             
+    graph_weighting=[{'name':'no_w'},{'name':'p_o'},{'name':'IC_pred'},{'name':'IC_pred'}
+                              ,{'name':'w_join'},{'name':'w_comb'},{'name':'PMI_pred_obj'}
+                              ,{'name':'w_ic_pmi'},{'name':'PMI_classes_min'},{'name':'PMI_classes_max'},
+                              {'name':'INTERACT_classes_min'},{'name':'INTERACT_classes_max'}
+                              ,{'name':'TOT_CORR_classes_max'},{'name':'TOT_CORR_classes_min'},{'name':'INTERACT_spo'}
+                              ,{'name':'TOT_CORR_spo'}]
+    lsa_conf=[{'name':'not lsa','value':None},{'name':'lsa 50','value':50},{'name':'lsa 10','value':10},{'name':'lsa 100','value':100}]
+    #,{'name':'lsa 50','value':50},{'name':'lsa 10','value':10},{'name':'lsa 100','value':100},#{'name':'lsa 500','value':500},{'name':'lsa 1000','value':1000}]#
+    alpha=[{'name':'alpha 0.05','value':0.05},{'name':'alpha 0.1','value':0.1},{'name':'alpha 0.15','value':0.15},
+          {'name':'alpha 0.25','value':0.25},{'name':'alpha 0.50','value':0.50},{'name':'alpha 0.75','value':0.75}]
+    
+    
+    
+    param_grid = {'ranking': ranking, 'lsa':lsa_conf,'graph_w':graph_weighting}
+    
+    grid = ParameterGrid(param_grid)
+    
+    
+    tests=[]
+    
+    #pr0 
+    
+    pr0={'name':'personalize page rank 0 no lsa no_w','value':'pr0'}
+    
+    current=generateCSAMatrix(documents,pr0)
+    
+    sym=cosineSimilarity(current)
+
+    vect=getSymilarityVector(sym)
+
+    curTest={'name': pr0['name'],'sym':sym,'vect':vect}
+    
+    tests.append(curTest)
+    
+    for params in grid:
+        print " ".join(map(lambda x: params[x]['name'],params.keys()))
+        
+        
+        
+        current=generateCSAMatrix(documents,params)
+        
+        # svd
+        if  params['lsa']['value'] is not None:
+            current = lsa(current,params['lsa']['value'])
+            
+        # alone
+        sym=cosineSimilarity(current)
+
+        vect=getSymilarityVector(sym)
+
+        curTest={'name': " ".join(map(lambda x: params[x]['name'],params.keys())),'sym':sym,'vect':vect}
+        
+        tests.append(curTest)
+        
+        if merging:
+            
+            """
+            max
+            """
+            
+            for m in metixes:
+                newSym,vect=maxMerging(m['sym'],sym)
+                tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+m['name']+" max",'sym':newSym,'vect':vect})
+            
+            """
+            alpha
+            """
+            
+            for al in alpha:
+                for m in metixes:
+                    newSym,vect=alphaMerging(m['sym'],sym,al['value'])
+                    tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+al['name']+" "+m['name'],'sym':newSym,'vect':vect})
+            
+            
+            """
+            adaptative alpha
+            
+            """
+            
+            current=generateCSAMatrix(documents,params)
+            
+            adaMatrix=getAdaptativeAlphaMatrix(current,2)
+            
+            for m in metixes:
+                newSym,vect=AdaptativeAlphaMerging(m['sym'],sym,adaMatrix)
+                tests.append({'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" "+m['name']+" adaAlpha2",'sym':newSym,'vect':vect})
+                
+            
+    #         current=np.zeros((len(documents),len(entitySet)), dtype=np.float)
+    #     
+    #         count=0
+    #         invIndex={}
+    #         countFeatures=0
+    #         for i,d in enumerate(documents):
+    #             
+    #             for f in d:
+    #                 if f['entity'] not in invIndex:
+    #                     invIndex[f['entity']]=countFeatures
+    #                     countFeatures+=1
+    #                 current[count,invIndex[f['entity']]]=f[params['ranking']['value']]
+    #             count+=1
+            """
+            join
+            """
+            
+            
+            
+            
+            for m in metixes:
+                #print m.keys()
+                if 'matrix' in m:
+                    
+                    currentConcat = np.hstack((current,m['matrix']))
+                    
+                    if  params['lsa']['value'] is not None:
+                        
+                        currentConcat = lsa(currentConcat,params['lsa']['value'])
+                        
+                    sym=cosineSimilarity(currentConcat)
+    
+                    vect=getSymilarityVector(sym)
+    
+        
+        
+                    curTest={'name': " ".join(map(lambda x: params[x]['name'],params.keys()))+" join "+m['name'],'sym':sym,'vect':vect}
+                    tests.append(curTest)
+        results.extend(calculatePearsonBenchRetLIstToTrasform(tests,bp_b))
+        del tests
+        tests=[]
+        
+    return results
 
 
 
-def load_from_files(param):
+
+
+
+
+def load_from_files(param,merging=False):
     documents=[]
     for i in range(50):
+        
         if os.path.isfile(param['files']+str(i+1)+".p"):
             current_doc=pickle.load(open( param['files']+str(i+1)+".p", "rb" ))
             documents.append(current_doc)
         else:
             documents.append([])
     df_b,metixes,bp_b=calculateBaselines()
-    tests=gridSearchCombination(documents,metixes)
-    results=calculatePearsonBench(tests,bp_b)    
+    tests=gridSearchCombination(documents,metixes,merging)
+    results=calculatePearsonBench(tests,bp_b)  
     results.to_pickle(param['files']+"_results")
 
+def load_from_files_progr(param,merging=False):
+    documents=[]
+    for i in range(50):
+        
+        if os.path.isfile(param['files']+str(i+1)+".p"):
+            current_doc=pickle.load(open( param['files']+str(i+1)+".p", "rb" ))
+            documents.append(current_doc)
+        else:
+            documents.append([])
+    df_b,metixes,bp_b=calculateBaselines()
+    results=gridSearchCombinationRetDfRes(documents,metixes,merging)
+    df_f=pd.DataFrame(results)  
+    df_f.to_pickle(param['files']+"_results")
+
+def test_reading_docs(param):
+    documents=[]
+    for i in range(50):
+        
+        if os.path.isfile(param['files']+str(i+1)+".p"):
+            current_doc=pickle.load(open( param['files']+str(i+1)+".p", "rb" ))
+            documents.append(current_doc)
+        else:
+            documents.append([])
+    print documents[0]
 
 
 params1={'files':'wikidata_l3_pr_r/wikidata_l3_pr_r_doc'}
@@ -484,7 +731,12 @@ params6={'files':'dbpedia_classes_l3_pr_r/dbpedia_classes_l3_pr_r_doc'}
 params7={'files':'wikidata_l2_pr_r_from_neo4j/wikidata_l2_pr_r_doc'}
 params8={'files':'wikidata_l2_rpr/wikidata_l2_pr_r_doc'}
 params10={'files':'wikidata_l3_pr_r_rpr/wikidata_l3_pr_r_doc'}
-load_from_files(params10)
-
+params11={'files':'D:/wikidata/dbpedia_l1_pr_r_rpr_weight/dbpedia_l1_pr_r_rpr_weight'}
+params12={'files':'D:/wikidata/dbpedia_l2_pr_r_rpr_weight/dbpedia_l2_pr_r_rpr_weight'}
+params13={'files':'D:/wikidata/dbpedia_l3_pr_r_rpr_weight/dbpedia_l3_pr_r_rpr_weight'}
+#load_from_files(params11,True)
+#load_from_files(params12,True)
+load_from_files_progr(params13,True)
+#test_reading_docs(params11)
 # df,a,b=calculateBaselines()
 # print df
